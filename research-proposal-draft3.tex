@@ -136,30 +136,34 @@ up into smaller independent pieces that can be built in parallel.
 \begin{figure}[t]
   \centering
   \includegraphics[height=6.2cm]{llvm-speedup-chart.png}
-  \caption{Building LLVM on 1 to 28 cores.}\label{fig:llvm}  % update this with to 32 cores
+  \caption{Building LLVM with -j pcount on a machine with 32 cores.}\label{fig:llvm}
 \end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[height=6.2cm]{ocaml-speedup-chart.png}
-  \caption{Building Ocaml on 1 to 32 cores.}\label{fig:ocaml}
+  \caption{Building OCaml with -j pcount on a machine with 32 cores.}\label{fig:ocaml}
 \end{figure}
 
 We have already begun to analyse the parallelism in project builds that use Make.  Two
 project builds we have already analysed are LLVM \cite{llvm} and OCaml \cite{ocaml}.
-LLVM is a very large project that has been observed to take about 3.4 hours to build on a
-single core.  See figure~\ref{fig:llvm} on page~\pageref{fig:llvm} to see how the LLVM build scaled
-when built on 1 to 32 cores.  This chart also shows the predicted upper speedup and lower speedup bounds, as
-calculated by Brent's law \cite{brent1974parallel}.  These predictions were calculated using a
+LLVM is a very large project that takes about 3.4 hours to build on a
+single core, and contains an estimated 2375 C and C++ files, with a combined 1490217 lines of code.
+See figure~\ref{fig:llvm} on page~\pageref{fig:llvm} to see how the LLVM build scaled
+when built on a 32 core machine using \emph{-j 1} to \emph{-j 32}.
+This chart also shows the predicted upper speedup and lower speedup bounds, as
+calculated by Brent's law \cite{brent1974parallel}.  Brent's law defines an upper and lower bound for
+the running time of a parallel program on a machine with \emph{p} processors, given the work and span of
+the program.  These predictions were calculated using a
 parallel analysis tool for Make that is described in section \ref{sec:build}.  LLVM's build has
 a potential parallelism of about 82, which means we would expect it to scale close to perfectly on 32 cores.
 As we see in the chart, the speedup gained by more cores flattens substantially at about 24 cores.
 We predict this failure to scale as well as possible is due to contention for system resources.
 
 
-OCaml is a smaller project that has been observed to take about 2.6 minutes to build on a single core.
-In figure~\ref{fig:ocaml} on page~\pageref{fig:ocaml} to see how the OCaml build scaled when built
-on 1 to 32 cores.  Unlike with LLVM, OCaml's build does not expose ample parallelism for 32 cores and
+OCaml is a smaller project that takes about 2.6 minutes to build on a single core and has an estimated 298 C files with 54386 lines of code.
+In figure~\ref{fig:ocaml} on page~\pageref{fig:ocaml} to see how the OCaml build scaled
+when built on a 32 core machine use \emph{-j 1} to \empgh{-j 32}.  Unlike with LLVM, OCaml's build does not expose ample parallelism for 32 cores and
 has a parallelism of about 7.  For builds that exhibit low levels of parallelism, we would like to
 expose more parallelism by reducing the span of the project, which for OCaml's build is about 20 seconds,
 or by running sequential compilation jobs in parallel.
