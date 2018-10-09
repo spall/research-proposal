@@ -152,7 +152,7 @@ single core.  See figure~\ref{fig:llvm} on page~\pageref{fig:llvm} to see how th
 when built on 1 to 32 cores.  This chart also shows the predicted upper speedup and lower speedup bounds, as
 calculated by Brent's law \cite{brent1974parallel}.  These predictions were calculated using a
 parallel analysis tool for Make that is described in section \ref{sec:build}.  LLVM's build has
-a parallelism of about 82, which means we would expect it to scale close to perfectly on 32 cores.
+a potential parallelism of about 82, which means we would expect it to scale close to perfectly on 32 cores.
 As we see in the chart, the speedup gained by more cores flattens substantially at about 24 cores.
 We predict this failure to scale as well as possible is due to contention for system resources.
 
@@ -162,7 +162,7 @@ In figure~\ref{fig:ocaml} on page~\pageref{fig:ocaml} to see how the OCaml build
 on 1 to 32 cores.  Unlike with LLVM, OCaml's build does not expose ample parallelism for 32 cores and
 has a parallelism of about 7.  For builds that exhibit low levels of parallelism, we would like to
 expose more parallelism by reducing the span of the project, which for OCaml's build is about 20 seconds,
-or running sequential compilation jobs in parallel.
+or by running sequential compilation jobs in parallel.
 
 
 Even though almost all production compilers are not parallel, research
@@ -211,35 +211,37 @@ Many of the long sequential tasks launched by a build system are compilation job
 expose additional parallelism beyond what can be exposed at the build system level, an at least
 partially parallel compiler is necessary.  A parallel compiler could decrease the span
 of a previously sequential task and thus potentially decrease the span of the project build as a
-whole.  Additionally, for projects that are failing to scale as well as their available parallelism
-predicts they should, it may prove useful to move some of that parallelism to a different area.
-For example, maybe 16 threads all reading different files is putting too much pressure on the file
-system and causing excessive overhead, but having 4 groups of 4 threads operate on 4 different files
-in parallel, might increase observed parallelism by decreasing resource contention.
+whole.  Additionally, for projects that fail to scale as well as their available parallelism
+predicts they should, it may prove useful to move some parallelism internal to the compiler.
+For example, if 16 threads reading different files puts too much pressure on the file
+system and causes excessive overhead, having 4 groups of 4 threads operate on 4 different files
+in parallel might increase observed parallelism by decreasing resource contention.
 
 % Certainly what Shake does is also work considering doing but I'm not sure best way to work that in atm
 
 To validate this hypothesis we can measure the utilization of various system resources when
 a representative project is built with exclusively build-level parallelism and when a
 the same project is built with a mix of build-level and compilation-level parallelism.  Resource utilization
-could then be compared to predicted speedups and observed speedups.  If moving soe of the parallel work
-to the compilation-level releaved contention, we would expect to see lower resource utilization for the
-seconds benchmark for some resources, as well as increased observed parallelism.
+could then be compared to predicted speedups and observed speedups.  If moving parallel work
+to the compilation-level releaved contention, we would expect to see lower resource utilization
+for some resources, as well as greater observed parallelism.
 
 % should I explain what different results owuld mean?
 
+% TODO ADD MOre related wokr here
 In section \ref{sec:state} I mentioned previous work that has been done on parallelizing various compiler
 passes and here I will discuss some work we have already done in this direction. 
 
-In our work on the Gibbon compiler \cite{vollmer2017compiling}, we showed that transforming trees into a serialized
-format and transforming the code that operates on those tres to operate on the serialized format,
-results in a major performance improvement.  We believe this serialized tree format could be used to
-write parallel compiler passes.  When the parallel version of a Gibbon benchmark was compared to
-GHC running the same parallel benchmark, it was observed that for large trees, a speedup of
-11x was observed on 16 cores when compared to a sequential execution.  And, it was observed that GHC
-failed to scale beyond 8 cores due to time spent in the garbage collector.  Due to the speedup from
-the serialization format itself and the lessened demands on memory allocation we believe Gibbon
-could be used to write a performant parallel compiler pass.
+One challenge for parallel scalability is memory allocation and garbage collection.  In our previous work \cite{vollmer2017compiling}
+we observed that a parallel add1 tree benchmark failed to scale beyond 8 cores when running on GHC due to
+time spent in the garbage collector.  In this work we built the Gibbon compiler \cite{vollmer2017compiling},
+which transforms trees into a serialized format, and transforms the code that operates on those trees to operate
+on the serialized format.  Using the Gibbon compiler, the same parallel add1 benchmark was converted to
+use the serialized format and for large trees, it was observed that a speedup of 11x was achieved on 16 cores
+when compared to a sequential execution.  We believe this is due to the decreased memory usage from the
+serialized tree over a pointer based tree.  Therefore, due to the speedup from the serialization format
+itself, and the lessened demands on memory allocation, we believe Gibbon could be used to write a performant
+parallel compiler pass.
 
 % probably butchered that explanation
 
