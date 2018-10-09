@@ -4,57 +4,57 @@
 
 \begin{document}
 
-\title{Coordinating parallelism between build systems and compilers to enable project builds to better scale on modern machines}
+\title{Coordinating parallelism between build systems and compilers to improve scalling on multi-core machines}
 \author{Sarah Spall}
 \date{}
 \maketitle
 
 \section{Introduction}
 
-In today's world multi-core machines are ubiquitous, with machines having up to 64 real cores.
+In today's world multi-core machines are ubiquitous, with machines having up to 64 physical cores.
 Having a machine with 64 cores instead of 32 cores isn't useful however, if the software running
-on it isn't capable of utilizing the 32 additional cores.  In the realm of parallel programming
-research, one maybe neglected area is build systems and compilers.  Even though every developer
-uses a build system and a compiler, not much research has been done to ensure both are as
-parallel as possible.
+on it isn't capable of utilizing the 32 additional cores.  Unfortunately, while extensive effort
+has gone into optimizing a wide variety of domains; build systems and compilers remain
+neglected. Even though every developer
+uses a build system and a compiler, they still do not scale to modern many-core systems.
 
 % What is the high level thing I want to say?
-The build systems and compilers of today tend to work separately even though they are
-solving separate parts of the same problem.  The build system is usually responsible for coordinating
+The build systems and compilers of today tend to work separately even though they solve
+separate parts of the same problem.  The build system is usually responsible for coordinating
 thes sequential tasks that make up a project build; these sequential tasks are often
-compilation jobs.  On the other hand, the compiler is responsible for completing some of the sequential
+compilation jobs.  On the other hand, the compiler is responsible for completing many of the sequential
 tasks that the build system is waiting on.  Traditionally, independent compilation jobs can be
 launched in parallel by the build system if they do not depend on one another, but internally,
-they are not themselves run in parallel.
+most modern compilers do not themselves run in parallel.
 
-I propose the following thesis: \emph{By combining and coordinating parallelism at the build system level
-and at the compiler level, project builds can better scale on modern day multi-core
+I propose the following thesis: \emph{By combining and coordinating parallelism between the build system level
+and the compiler level, project builds can better scale on modern day multi-core
 machines.}
 
-In support of this thesis I plan to do the following things.  First, I will analyse the parallelism
+In support of this thesis I propose three separate lines of research.  First, I will analyse the parallelism
 currently exposed and observed in existing projects.  Second, I will investigate ways to expose
-additional parallelism at the build system level.  Third, I will work towards discovering methods
-that will make writing a paralle compiler realistic, and show that a parallel compiler could work
-in concert with a build system to build projects as quickly as possible.  In the following
-sections of this proposal I will explain how I plan to accomplish these things in more detail.
+additional parallelism at the build system level.  Third, I will show how to improve the
+parallelism of compilers, and show that a parallel compiler can work
+in concert with a build system to better exploit available parallelism.  The following
+sections of this proposal explain in more detail how I plan to accomplish these goals.
 
-\section{Current state of build systems and compilers}
+\section{The current state of parallel builds}
 \label{sec:state}
 % Start out talking about multiple build systems and how they general all work
 % Then move onto the specifics of Make itself.
 
 % List of build systems: Make, Shake, Bazel, Buck, Ninja, 
 
-There are many existing build systems whose general goal is to build a project as quickly as
-possible.  Some of these build systems include: Make \cite{feldman1979make}, Shake
+There are many existing build systems whose general goal is to build a project efficiently
+including, Make \cite{feldman1979make}, Shake
 \cite{mitchell2012shake}, Bazel \cite{bazel}, Buck \cite{buck}, and Ninja \cite{ninja}.
 All of these build systems will launch independent tasks in parallel as one method of building a
 project as quickly as possible.
 
-Buck appears to go beyond this model of exploiting only the obviously available parallelism.  
-Usually it is entirely the user of the build system's job to fully define which tasks are independent.
-Buck claims to not require users to fully define which tasks are independent and will break coarse-build rules
-up into smaller independent pieces that can be built in parallel.  
+Most build systems use a dependency graph to decide the correct  order to launch jobs and which jobs are
+independent from one another.  If two or more jobs are independent they can be executed
+in parallel.  Therefore, a dependency graph describes the obvious parallelism available in a project build
+and makes it easy for a build system to exploit it.
 
 Make is a ubiquitous build system that first uses the information specified  in a
 Makefile to construct a directed graph of a build project's tasks.  Make then performs a
@@ -66,6 +66,11 @@ jobs may run at once, but of course how many jobs will run in parallel is direct
 of parallelism available in the project's directed graph.   We would like to go
 beyond this model of build-level parallelism and discover more parallelism within the compilation jobs
 launched by the build system.
+
+Buck appears to go beyond this model of exploiting only the obviously available parallelism.  
+Usually it is entirely the user of the build system's job to fully define which tasks are independent.
+Buck claims to not require users to fully define which tasks are independent and will break coarse-build rules
+up into smaller independent pieces that can be built in parallel.  
 
 % not sure if this note about shake really fits here
 %shake has an interesting strategy for reducing contention for system resources such as IO and
@@ -109,10 +114,6 @@ launched by the build system.
 % builds are always run in parallel; so just like every other project.  by default
 
 % talk about parallel compilation now
-
-Although there is not parallel production compiler, to the best of my knowledge, research
-has been done on how to parallelize certain compiler passes.  These passed include
-parsing \cite{}, register allocation \cite{}, program analysis \cite{}, and typechecking \cite{}.
 % need to say more
 
 
@@ -132,71 +133,72 @@ parsing \cite{}, register allocation \cite{}, program analysis \cite{}, and type
 
 % Ask ryan about using his 1 versus 16 core debian build parallelism
 
-\section{Parallel analysis tool for build systems}
-
 \begin{figure}[t]
-  \includegraphics[height=6.5cm]{llvm-speedup-chart.png}
+  \centering
+  \includegraphics[height=6.2cm]{llvm-speedup-chart.png}
   \caption{Building LLVM on 1 to 28 cores.}\label{fig:llvm}  % update this with to 32 cores
 \end{figure}
 
 \begin{figure}[t]
-  \includegraphics[height=6.5cm]{make-speedup-comparison.png}
-  \caption{Building GNU Make on 1 to 32 cores.}\label{fig:make}
+  \centering
+  \includegraphics[height=6.2cm]{ocaml-speedup-chart.png}
+  \caption{Building Ocaml on 1 to 32 cores.}\label{fig:ocaml}
 \end{figure}
 
-Due to the difficulty of writing good parallel programs, many tools have been created to analyse
-parallel programs.  Cilkprof \cite{schardl2015cilkprof}, Kremlin \cite{garcia2011kremlin}, and
-TaskProf \cite{yoga2017fast} are a few of these tools.  Cilkprof is a profiler for multithreaded
-Cilk programs and by collecting work and span information for every call site in a program,
-it can identify bottlenecks and help programmers manually improve their parallel programs.  Similarly,
-Taskprof identifies which areas of a task parallel program should be optimized to improve
-parallelism.  Kremlin, on the other hand, analyses a sequential version of a program to make
-suggestions of which portions should be parallelized first.
+We have already begun to analyse the parallelism in project builds that use Make.  Two
+project builds we have already analysed are LLVM \cite{llvm} and OCaml \cite{ocaml}.
+LLVM is a very large project that has been observed to take about 3.4 hours to build on a
+single core.  See figure~\ref{fig:llvm} on page~\pageref{fig:llvm} to see how the LLVM build scaled
+when built on 1 to 32 cores.  This chart also shows the predicted upper speedup and lower speedup bounds, as
+calculated by Brent's law \cite{brent1974parallel}.  These predictions were calculated using a
+parallel analysis tool for Make that is described in section \ref{sec:build}.  LLVM's build has
+a parallelism of about 82, which means we would expect it to scale close to perfectly on 32 cores.
+As we see in the chart, the speedup gained by more cores flattens substantially at about 24 cores.
+We predict this failure to scale as well as possible is due to contention for system resources.
 
-Even though a project build is just a specialized version of a parallel program, to the best of
-my knowledge, there is no parallel analysis tool that can help analyse a project build.  In the spirit of
-previous parallel analysis tools, I propose such a tool for Make.  This tool will
+
+OCaml is a smaller project that has been observed to take about 2.6 minutes to build on a single core.
+In figure~\ref{fig:ocaml} on page~\pageref{fig:ocaml} to see how the OCaml build scaled when built
+on 1 to 32 cores.  Unlike with LLVM, OCaml's build does not expose ample parallelism for 32 cores and
+has a parallelism of about 7.  For builds that exhibit low levels of parallelism, we would like to
+expose more parallelism by reducing the span of the project, which for OCaml's build is about 20 seconds,
+or running sequential compilation jobs in parallel.
+
+
+Even though almost all production compilers are not parallel, research
+has been done on how to parallelize certain compiler passes.  These passes include
+parsing \cite{barenghi2015parallel}, register allocation \cite{makowski1995achieving} \cite{zobel1993program}, program analysis \cite{kuper2014freeze}
+\cite{mendez2010parallel} \cite{prabhu2011eigencfa} \cite{zobel1992program}, and typechecking \cite{newton2016parallel}.
+This work probably has not made it into many mainstream compilers due to the general difficulty of writing
+performant parallel programs, and the complicated algorithms and data structures used to write compilers.
+
+\section{Parallel analysis tool for build systems}
+\label{sec:build}
+
+A project build is just a specialized parallel program, but not much effort has gone
+into helping developers write builds that are as parallel as possible.  Many, parallel
+analysis tools have been created that help programmers optimize general parallel programs,
+such as, Cilkprof \cite{schardl2015cilkprof}, Kremlin \cite{garcia2011kremlin}, and TaskProf
+\cite{yoga2017fast}.
+
+To the best of my knowledge, there is no parallel analysis tool for project builds, and in the
+spirit of previous parallel analysis tools, I propose such a tool for Make.  This tool will
 serve two main purposes; first, it will help us analyse and understand the current state of
-parallelism in project builds that use Make, and second, it will assist programmers in understanding
-the parallelisism available in their project builds and will be able to make suggestions of which
-targets and rules could be rewritten to expose more parallelism.
+parallelism in project builds using Make, and second, it will assist programmers in their project
+builds and will be able to make suggestions of which targets and rules could be rewritten to
+expose more parallelism.
 
-Work has already begun on this analysis tool and it has already been used to analyse the builds of
-projects such as LLVM \cite{lattner2002llvm} and GNU Make \cite{gnumake}.  The tool works by first recording information from a
-run of GNU Make and then during a post-mortem
-analysis rebuilding the DAG built by Make.  From this DAG we can learn the work, span, and
-parallelism of the project.  From this we can predict how long it will take to build
-the project on any number of cores, as well as identify which portions of the Makefile the
-developer may wish to re-evaluate.
+Work has already begun on this tool and it has been used to analyse the builds of
+projects such as LLVM \cite{lattner2002llvm} and OCaml \cite{ocaml}.  The tool works by
+recording information from a run of GNU Make and then reconstructing the build's DAG
+during a post-mortem analysis of the run.  With this we can perform an analysis similar
+to other parallel analysis tools and calculate values such as work, span, and
+parallelism.
+Additionally we can record all of the system calls made during the course of the build.
+From this we can determine all of the files used by each shell command run during the build, and
+can state at a file-level whether one shell-command potentially depends on another shell-command.
+This will let us determine the accuracy of user defined dependencies.
 % brief overview of how these 3 tools work.
-
-From our analysis of LLVM and GNU Make, we have observed two different parallelism stories.
-See figure~\ref{fig:llvm} on page~\pageref{fig:llvm} to see the speedups predicted and
-observed when building LLVM on
-1 core all the way to 28 cores.  Using Brent's law \cite{brent1974parallel} and the work and span
-calculations, we can predict the upper expected speedup and the lower expected speedup bounds.
-In this case, upper speedup, red diamonds, and perfect speedup, yellow triangles, are the same.
-This is because LLVM exposes ample parallelism, with a predicted parallelism of 82; which means that
-we would expect LLVM's build to run 82x faster on an infinite number of processers than on a single
-processor.  In this chart we can see the lower expected speedup is indicted by a blue square, and
-the actual observed speedup, green triangle, falls slightly below this when run about 10 to 28
-cores.  So, here we see that LLVM fails to scale on 28 cores even though there is ample exposed
-parallelism.  We predict this is due to contention for system resources.
-
-Building GNU Make tells a different story.  Refer to figure~\ref{fig:make} on page ~\pageref{fig:make}
-to see the speedups predicted and observed when building GNU Make on 1 to 32 cores.  Unlike with
-LLVM, GNU Make's build does not expose ample parallelism and has a parallelism of only 6.  The
-flattening of the upper speedup line, red diamonds, is due to the parallelism of the project being
-only 6.  The best way to speedup GNU Make's build would be to try and decrease it's span.
-
-% figure for llvm....
-% A lot of available parallelism, but not being used
-% hypothesis: problem is in competing for IO and memory so, move parallelism to compiler
-% to alleviate this
-
-% figure for ocaml?
-% Not enough available parallelism?
-
 
 \section{Parallel compilers}
 
